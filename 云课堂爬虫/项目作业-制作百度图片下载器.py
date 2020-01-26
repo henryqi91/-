@@ -1,9 +1,6 @@
 from urllib import parse
 import requests
-from bs4 import BeautifulSoup
-from multiprocessing import Pool  #多进程
-import time # 效果对比
-from uuid import uuid4
+from multiprocessing import Pool #多进程
 import os
 
 """
@@ -11,7 +8,7 @@ import os
 - 加快下载速度：使用session
 - 多进程：每个json一个进程(辨识：不同pn)
 - **增加用户需要的搜索结果的数量
-- 未优化【多线程】的爬取结果编号部分。
+- **图片结果命名直接以编号的形式
 
 """
 
@@ -21,64 +18,37 @@ headers = {
     ,"Referer": "http://image.baidu.com/search/index?tn=baiduimage&ps=1&ct=201326592&lm=-1&cl=2&nc=1&ie=utf-8&word=python"
     ,"Connection": "keep-alive"
 }
-
-num = 0 #图片计数器
-
-def get_data(url,session):
-    global num
+# counter = 1
+def get_data(url,session,num_of_results,start_num=1):
+    global counter
+    num = start_num
     html = session.get(url, headers=headers)
     if html.status_code == 200:
         try:
             content = html.json()['data']
             for c in content[:-1]:
-                if num >= num_of_results:
+                if num > num_of_results:
                     break
                 #下载图片
                 img = session.get(c['middleURL'], headers=headers)
-                with open("imgs/{}.jpg".format(uuid4()), 'wb') as f:
+                with open("imgs/{}.jpg".format(num), 'wb') as f:
                     f.write(img.content)
+                    num_downloaded = len(os.listdir("imgs/"))
+                    print("进度：", num_downloaded, "/", num_of_results) #查看下载进度
                     num += 1
-                    print(num)
+                    # counter += 1
         except:
             pass
     else:
         print("ERROR fetching HTML, pls check ur internet connection or contact your ISP")
     pass
 
-def get_data2(url,start_num):
-    num = start_num
-    session = requests.session()
-    # html = requests.get(url,headers=headers)
-    html = session.get(url, headers=headers)
-    if html.status_code == 200:
-        print("成功获取网页，解析中....")
-        soup = BeautifulSoup(html.text, 'lxml')
-        results = soup.select('div.result.c-container')
-        for result in results:
-            title = result.select_one('h3 a').text
-            href = result.select_one('h3 a')['href']
-            desc = result.select_one('div.c-abstract').text
-            # img_link = result.select('div.general_image_pic.c-span6 a img')['src']
-            print("【{}】".format(num), title, href)
-            print(title, href)
-            print("--", desc)
-            # print("img link:",img_link)
-            num += 1
-    else:
-        print("ERROR")
-
-    print("FINISHED!",start_num // 8)
-    pass
-
-def download_img(url):
-    pass
-
 if __name__ == '__main__':
     if not os.path.exists("imgs"):
         os.makedirs("imgs")
-    # start_time = time.time() # 时间对比测试
+
     keyword = 'python'
-    num_of_results = 50
+    num_of_results = 80
     # keyword = parse.quote(input("请输入你的关键字>>>> "))
     # num_of_results = int(input("请输入结果数量>>> "))
     session = requests.session()
@@ -89,20 +59,18 @@ if __name__ == '__main__':
     #           "&cl=2&lm=-1&ie=utf-8&oe=utf-8&adpicid=&st=&z=&ic=&hd=&latest=&copyright=&word={}" \
     #           "&s=&se=&tab=&width=&height=&face=&istype=&qc=&nc=1&fr=&expermode=&force=&pn={}" \
     #           "&rn=30&gsm=&1580012267072=".format(keyword,keyword,30*i)
-    #     get_data(url=url,session=session)
+    #     get_data(url=url,session=session,num_of_results=num_of_results)
 
     #### 多进程版本，每个json一个进程
-    p = Pool(6) #cpu core = 6
+    p = Pool(processes=6) #cpu core = 6
     for i in range(1, num_of_results//30+2):
         url = "http://image.baidu.com/search/acjson?tn=resultjson_com&ipn=rj&ct=201326592&is=&fp=result&queryWord={}" \
               "&cl=2&lm=-1&ie=utf-8&oe=utf-8&adpicid=&st=&z=&ic=&hd=&latest=&copyright=&word={}" \
               "&s=&se=&tab=&width=&height=&face=&istype=&qc=&nc=1&fr=&expermode=&force=&pn={}" \
               "&rn=30&gsm=&1580012267072=".format(keyword, keyword, 30*i)
-        p.apply_async(get_data, args=(url,session,))
+        start_num = 30*i-29
+        p.apply_async(get_data, args=(url,session,num_of_results,start_num,))
     p.close()
     p.join()
 
-    # 时间对比测试
-    # end_time = time.time()
-    # time_elapsed = end_time - start_time
-    # print(time_elapsed)
+
