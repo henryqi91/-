@@ -47,10 +47,8 @@ if __name__ == '__main__':
     if not os.path.exists("imgs"):
         os.makedirs("imgs")
 
-    keyword = 'python'
-    num_of_results = 80
-    # keyword = parse.quote(input("请输入你的关键字>>>> "))
-    # num_of_results = int(input("请输入结果数量>>> "))
+    keyword = parse.quote(input("请输入你的关键字>>>> "))
+    num_of_results = int(input("请输入结果数量>>> "))
     session = requests.session()
 
     # #### 单进程
